@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>포토 마그넷 편집기</title>
+<style>
+  :root{
+    --brand:#ff6b4a;
+    --brand-dark:#e6512f;
+    --ink:#1f2430;
+    --sub:#6b7280;
+    --line:#e5e7eb;
+    --bg:#f7f7f9;
+    --card:#ffffff;
+    --danger:#e0453a;
+    --good:#2a9d5c;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:40px;
+  }
+  #app{max-width:520px;margin:0 auto;padding:0 16px;}
+  header{padding:20px 0 8px;text-align:center;}
+  header h1{font-size:19px;margin:0 0 4px;}
+  header p{font-size:13px;color:var(--sub);margin:0;}
+
+  .progress{display:flex;gap:6px;justify-content:center;margin:14px 0 20px;}
+  .progress span{width:26px;height:4px;border-radius:2px;background:var(--line);}
+  .progress span.active{background:var(--brand);}
+  .progress span.done{background:#ffcabb;}
+
+  .card{background:var(--card);border-radius:16px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:14px;}
+  .step{display:none;}
+  .step.visible{display:block;}
+
+  h2.step-title{font-size:16px;margin:0 0 4px;}
+  .step-desc{font-size:13px;color:var(--sub);margin:0 0 16px;line-height:1.5;}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    border:none;border-radius:10px;padding:13px 18px;font-size:15px;font-weight:600;
+    cursor:pointer;width:100%;
+  }
+  .btn-primary{background:var(--brand);color:#fff;}
+  .btn-primary:active{background:var(--brand-dark);}
+  .btn-primary:disabled{background:#f0b7a8;cursor:not-allowed;}
+  .btn-secondary{background:#fff;color:var(--ink);border:1.5px solid var(--line);}
+  .btn-ghost{background:transparent;color:var(--sub);text-decoration:underline;padding:8px;}
+  .btn-row{display:flex;gap:10px;margin-top:16px;}
+  .btn-row .btn{width:auto;flex:1;}
+
+  .dropzone{
+    border:2px dashed #d3d6dc;border-radius:14px;padding:36px 16px;text-align:center;
+    color:var(--sub);cursor:pointer;background:#fafafb;
+  }
+  .dropzone.drag{border-color:var(--brand);background:#fff5f2;}
+  .dropzone .icon{font-size:34px;display:block;margin-bottom:8px;}
+  .dropzone .fmt-note{font-size:11px;color:#a2a6ad;margin-top:8px;}
+  input[type=file]{display:none;}
+
+  /* 사이즈 선택 필 버튼 */
+  .size-pills{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+  .size-pill{
+    padding:9px 14px;border-radius:999px;border:1.5px solid var(--line);background:#fff;
+    font-size:13px;font-weight:600;cursor:pointer;color:var(--ink);
+  }
+  .size-pill.active{border-color:var(--brand);background:var(--brand);color:#fff;}
+
+  /* 크롭 화면 (업로드된 사진 위에 빨간 네모 오버레이) */
+  .crop-wrap{display:flex;justify-content:center;}
+  .crop-outer{
+    position:relative;overflow:hidden;background:#111;border-radius:10px;
+    touch-action:none;max-width:100%;
+  }
+  .crop-outer img{
+    display:block;width:100%;height:100%;
+    user-select:none;-webkit-user-drag:none;pointer-events:none;
+  }
+  .crop-box{
+    position:absolute;border:3px solid #ff3b30;box-sizing:border-box;
+    box-shadow:0 0 0 9999px rgba(0,0,0,.45);
+    cursor:grab;touch-action:none;
+  }
+  .crop-box:active{cursor:grabbing;}
+
+  .zoom-row{display:flex;align-items:center;gap:10px;width:100%;margin-top:14px;}
+  .zoom-row span{font-size:12px;color:var(--sub);white-space:nowrap;}
+  input[type=range]{width:100%;accent-color:var(--brand);}
+
+  .rotate-row{display:flex;justify-content:center;margin-bottom:12px;}
+  .rotate-btn{
+    display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:999px;
+    border:1.5px solid var(--line);background:#fff;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;
+  }
+
+  /* 필터 화면 */
+  .filter-preview-frame{
+    margin:0 auto 16px;border-radius:10px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.12);
+    background:#fff;max-width:280px;
+  }
+  .filter-preview-frame canvas{display:block;width:100%;height:auto;}
+
+  .filter-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
+  .filter-chip{
+    border:1.5px solid var(--line);border-radius:10px;padding:10px 4px;text-align:center;
+    font-size:12px;background:#fff;cursor:pointer;color:var(--ink);
+  }
+  .filter-chip.active{border-color:var(--brand);background:#fff5f2;color:var(--brand-dark);font-weight:700;}
+
+  .slider-block{margin-bottom:12px;}
+  .slider-block label{display:flex;justify-content:space-between;font-size:12px;color:var(--sub);margin-bottom:4px;}
+
+  /* 최종 미리보기 */
+  .preview-frame{
+    margin:0 auto 14px;border-radius:10px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.12);
+    background:#fff;
+  }
+  .preview-frame canvas{display:block;width:100%;height:auto;}
+  .preview-meta{text-align:center;font-size:12px;color:var(--sub);margin-bottom:18px;}
+
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;}
+  .field input[type=text]{
+    width:100%;padding:12px;border:1.5px solid var(--line);border-radius:10px;font-size:14px;
+  }
+  .field .hint{font-size:11px;color:var(--sub);margin-top:4px;}
+
+  .status-box{
+    display:none;text-align:center;padding:12px;border-radius:10px;font-size:13px;margin-bottom:12px;
+  }
+  .status-box.show{display:block;}
+  .status-box.loading{background:#eef2ff;color:#3b4ba8;}
+  .status-box.error{background:#fdecea;color:var(--danger);}
+
+  .done-icon{font-size:52px;text-align:center;margin-bottom:6px;}
+  .done-title{text-align:center;font-size:17px;font-weight:700;margin-bottom:6px;}
+  .done-desc{text-align:center;font-size:13px;color:var(--sub);margin-bottom:20px;line-height:1.6;}
+
+  footer{text-align:center;font-size:11px;color:#b4b7bd;margin-top:24px;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <h1>📸 포토 마그넷 편집기</h1>
+    <p>사진을 올리고, 원하는 부분을 골라 바로 주문하세요</p>
+  </header>
+
+  <div class="progress" id="progressBar">
+    <span data-step="0"></span>
+    <span data-step="1"></span>
+    <span data-step="2"></span>
+    <span data-step="3"></span>
+  </div>
+
+  <!-- STEP 0: 업로드 -->
+  <div class="step" data-step="0">
+    <div class="card">
+      <h2 class="step-title">① 사진을 업로드해주세요</h2>
+      <p class="step-desc">휴대폰이나 컴퓨터에 저장된 사진을 선택해주세요.</p>
+      <div class="dropzone" id="dropzone">
+        <span class="icon">🖼️</span>
+        <div id="dropzoneText">탭해서 사진 선택 (또는 여기로 드래그)</div>
+        <div class="fmt-note">JPG, PNG, WEBP, HEIC(아이폰 사진) 등 대부분의 사진 형식을 지원해요</div>
+      </div>
+      <input type="file" id="fileInput" accept="image/*,.heic,.heif,.jpg,.jpeg,.png,.webp,.gif,.bmp">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="toStep1" disabled>다음</button>
+    </div>
+  </div>
+
+  <!-- STEP 1: 사이즈 선택 + 크롭 영역 조정 -->
+  <div class="step" data-step="1">
+    <div class="card">
+      <h2 class="step-title">② 인화 사이즈를 고르고 영역을 맞춰주세요</h2>
+      <p class="step-desc">빨간 네모 안쪽이 실제로 인화되는 부분이에요. 네모를 드래그해서 옮기고, 아래 슬라이더로 크기를 조절하세요. 사이즈 버튼을 눌러가며 비교도 할 수 있어요.</p>
+
+      <div class="size-pills" id="sizePills"></div>
+
+      <div class="rotate-row">
+        <button type="button" class="rotate-btn" id="rotateBtn">↻ 사진 90° 회전</button>
+      </div>
+
+      <div class="crop-wrap">
+        <div class="crop-outer" id="cropOuter">
+          <img id="photoImg" alt="업로드한 사진" draggable="false">
+          <div class="crop-box" id="cropBox"></div>
+        </div>
+      </div>
+
+      <div class="zoom-row">
+        <span>영역 크기</span>
+        <input type="range" id="boxScaleSlider" min="30" max="100" value="100">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" id="backTo0">이전</button>
+      <button class="btn btn-primary" id="toStep2">다음</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: 필터 -->
+  <div class="step" data-step="2">
+    <div class="card">
+      <h2 class="step-title">③ 필터로 분위기를 조정해보세요 (선택사항)</h2>
+      <p class="step-desc">마음에 드는 필터를 골라보세요. 밝기·대비·채도도 세밀하게 조정할 수 있어요.</p>
+
+      <div class="filter-preview-frame">
+        <canvas id="filterPreviewCanvas"></canvas>
+      </div>
+
+      <div class="filter-grid" id="filterGrid"></div>
+      <div class="slider-block">
+        <label><span>밝기</span><span id="brightnessVal">100%</span></label>
+        <input type="range" id="brightnessSlider" min="60" max="160" value="100">
+      </div>
+      <div class="slider-block">
+        <label><span>대비</span><span id="contrastVal">100%</span></label>
+        <input type="range" id="contrastSlider" min="60" max="160" value="100">
+      </div>
+      <div class="slider-block">
+        <label><span>채도</span><span id="saturationVal">100%</span></label>
+        <input type="range" id="saturationSlider" min="0" max="200" value="100">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" id="backTo1">이전</button>
+      <button class="btn btn-primary" id="toStep3">인화 미리보기</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: 최종 미리보기 & 전송 -->
+  <div class="step" data-step="3">
+    <div class="card">
+      <h2 class="step-title">④ 최종 확인 후 저장해주세요</h2>
+      <p class="step-desc" id="previewDesc">실제 인화되었을 때의 모습입니다. 이대로 제작이 진행됩니다.</p>
+      <div class="preview-frame" id="previewFrame">
+        <canvas id="finalCanvas"></canvas>
+      </div>
+      <div class="preview-meta" id="previewMeta"></div>
+
+      <div class="field">
+        <label for="orderNote">주문번호 또는 성함 (선택)</label>
+        <input type="text" id="orderNote" placeholder="예: 홍길동 / 주문번호 12345">
+        <div class="hint">입력해주시면 판매자가 주문과 사진을 더 정확히 매칭할 수 있어요.</div>
+      </div>
+
+      <div class="status-box" id="statusBox"></div>
+
+      <button class="btn btn-primary" id="submitBtn">✅ 이대로 최종 저장하기</button>
+      <button class="btn btn-ghost" id="downloadBtn" style="width:100%;">사진만 다운로드 받기</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" id="backTo2">다시 편집하기</button>
+    </div>
+  </div>
+
+  <!-- STEP 4: 완료 -->
+  <div class="step" data-step="4">
+    <div class="card">
+      <div class="done-icon">🎉</div>
+      <div class="done-title">전송이 완료되었습니다!</div>
+      <div class="done-desc">편집하신 사진이 판매자에게 정상적으로 전달되었습니다.<br>제작 및 배송 관련 안내를 기다려주세요.</div>
+      <button class="btn btn-secondary" id="restartBtn">새 사진으로 다시 만들기</button>
+    </div>
+  </div>
+
+  <footer>Photo Magnet Editor</footer>
+</div>
+
+<!-- 아이폰 HEIC 사진을 브라우저에서 볼 수 있게 변환해주는 라이브러리 -->
+<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+
+<script>
+(function(){
+  "use strict";
+
+  /* =========================================================
+     설정 영역 — 판매자(사용자)가 직접 바꿀 수 있는 부분
+     ========================================================= */
+
+  // 판매 사이즈 옵션. widthCm/heightCm 비율에 맞춰 빨간 네모 가이드가 자동 생성됩니다.
+  var SIZE_PRESETS = [
+    { id: 'square',    label: '정사각형 6 x 6cm',      widthCm: 6,   heightCm: 6 },
+    { id: 'rect_84x53', label: '직사각형 8.4 x 5.3cm', widthCm: 8.4, heightCm: 5.3 }
+  ];
+
+  // ★★★ Google Apps Script 배포 후 발급받은 웹앱 주소로 반드시 교체하세요 ★★★
+  var GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyM1Mf3YQVnbcMjz1TUdXRLpmmYLzm7VlwsdGMRBJCsN-ynt7YekfMe3APIq1D6nIifUg/exec';
+
+  // 최종 인화 이미지 해상도 (인치당 픽셀 수). 300이면 인쇄 품질로 충분합니다.
+  var PRINT_DPI = 300;
+
+  /* ========================================================= */
+
+  var CM_PER_INCH = 2.54;
+
+  var state = {
+    sizePreset: null,
+    baseImg: null,      // 원본 그대로 로드된 이미지 (회전 전)
+    baseNaturalW: 0,
+    baseNaturalH: 0,
+    rotation: 0,        // 0, 90, 180, 270 (시계방향)
+    naturalW: 0,
+    naturalH: 0,
+    imgEl: null,        // 회전이 반영된, 실제로 화면/캔버스에 쓰이는 이미지
+    dispW: 0,
+    dispH: 0,
+    dispScale: 1,
+    box: null,          // {x,y,w,h} - crop-outer 기준 표시 좌표(px)
+    maxBoxW: 0,
+    maxBoxH: 0,
+    filterMode: 'none',
+    brightness: 100,
+    contrast: 100,
+    saturation: 100
+  };
+
+  var qs = new URLSearchParams(window.location.search);
+  var sellerId = qs.get('seller') || qs.get('listing') || '';
+
+  /* ---------- 유틸 ---------- */
+  function $(sel){ return document.querySelector(sel); }
+  function $all(sel){ return Array.prototype.slice.call(document.querySelectorAll(sel)); }
+  function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+
+  var FILTERS = {
+    none:      { label: '원본',    css: '' },
+    bw:        { label: '흑백',    css: 'grayscale(1)' },
+    sepia:     { label: '세피아',  css: 'sepia(0.75)' },
+    vivid:     { label: '선명하게', css: 'contrast(1.15) saturate(1.35)' },
+    warm:      { label: '따뜻하게', css: 'sepia(0.25) saturate(1.2) hue-rotate(-8deg)' },
+    cool:      { label: '차갑게',  css: 'saturate(1.1) hue-rotate(10deg)' },
+    bright:    { label: '밝게',    css: 'brightness(1.18)' },
+    soft:      { label: '뽀샤시',  css: 'brightness(1.08) contrast(0.92) saturate(1.05)' }
+  };
+
+  function currentFilterCss(){
+    var base = FILTERS[state.filterMode].css;
+    var extra = 'brightness(' + (state.brightness/100) + ') ' +
+                'contrast(' + (state.contrast/100) + ') ' +
+                'saturate(' + (state.saturation/100) + ')';
+    return (base ? base + ' ' : '') + extra;
+  }
+
+  /* ---------- 진행 단계 표시 ---------- */
+  var currentStep = 0;
+
+  function goToStep(n){
+    currentStep = n;
+    $all('.step').forEach(function(el){
+      el.classList.toggle('visible', Number(el.getAttribute('data-step')) === n);
+    });
+    $all('#progressBar span').forEach(function(el){
+      var s = Number(el.getAttribute('data-step'));
+      el.classList.toggle('active', s === n);
+      el.classList.toggle('done', s < n && n < 4);
+    });
+    $('#progressBar').style.display = (n === 4) ? 'none' : 'flex';
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  /* ---------- STEP 0: 업로드 ---------- */
+  function isHeicFile(file){
+    var type = (file.type || '').toLowerCase();
+    var name = (file.name || '').toLowerCase();
+    return type.indexOf('heic') !== -1 || type.indexOf('heif') !== -1 ||
+           name.endsWith('.heic') || name.endsWith('.heif');
+  }
+
+  function handleFile(file){
+    if (!file) return;
+
+    if (isHeicFile(file)){
+      setDropzoneText('사진 변환 중입니다... 잠시만 기다려주세요');
+      if (typeof heic2any === 'undefined'){
+        alert('아이폰(HEIC) 사진 변환 기능을 불러오지 못했어요. 인터넷 연결을 확인하시거나, 사진을 jpg/png로 바꿔서 다시 시도해주세요.');
+        setDropzoneText('탭해서 사진 선택 (또는 여기로 드래그)');
+        return;
+      }
+      heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 })
+        .then(function(convertedBlob){
+          loadImageFromBlob(convertedBlob, file.name);
+        })
+        .catch(function(err){
+          alert('이 사진은 변환할 수 없었어요. 다른 사진으로 시도하거나 jpg/png로 바꿔서 업로드해주세요.');
+          setDropzoneText('탭해서 사진 선택 (또는 여기로 드래그)');
+        });
+      return;
+    }
+
+    if (file.type && file.type.indexOf('image/') !== 0){
+      alert('이미지 파일만 업로드할 수 있어요. (jpg, png, heic 등)');
+      return;
+    }
+
+    loadImageFromBlob(file, file.name);
+  }
+
+  function setDropzoneText(text){
+    $('#dropzoneText').textContent = text;
+  }
+
+  function loadImageFromBlob(blob, name){
+    var url = URL.createObjectURL(blob);
+    var base = new Image();
+    base.onload = function(){
+      state.baseImg = base;
+      state.baseNaturalW = base.naturalWidth;
+      state.baseNaturalH = base.naturalHeight;
+      state.rotation = 0;
+      $('#toStep1').disabled = false;
+      setDropzoneText('선택됨: ' + (name || '사진'));
+      rebuildRotatedImage();
+    };
+    base.onerror = function(){
+      alert('사진을 불러올 수 없었어요. 다른 사진으로 다시 시도해주세요.\n(지원 형식: jpg, png, webp, heic 등)');
+      setDropzoneText('탭해서 사진 선택 (또는 여기로 드래그)');
+    };
+    base.src = url;
+  }
+
+  // 원본 이미지를 state.rotation 각도만큼 회전시켜서, 실제 편집/미리보기/최종 저장에 쓰일
+  // photoImg를 다시 만들어줍니다.
+  function rebuildRotatedImage(){
+    var baseW = state.baseNaturalW, baseH = state.baseNaturalH;
+    var swapped = (state.rotation === 90 || state.rotation === 270);
+    var outW = swapped ? baseH : baseW;
+    var outH = swapped ? baseW : baseH;
+
+    var canvas = document.createElement('canvas');
+    canvas.width = outW;
+    canvas.height = outH;
+    var ctx = canvas.getContext('2d');
+    ctx.save();
+    ctx.translate(outW / 2, outH / 2);
+    ctx.rotate(state.rotation * Math.PI / 180);
+    ctx.drawImage(state.baseImg, -baseW / 2, -baseH / 2, baseW, baseH);
+    ctx.restore();
+
+    var img = $('#photoImg');
+    img.onload = function(){
+      state.naturalW = img.naturalWidth;
+      state.naturalH = img.naturalHeight;
+      state.imgEl = img;
+
+      // 이미 크롭 화면에 있는 상태에서 회전했다면, 영역 크기 비율을 유지하며 다시 배치합니다.
+      if (currentStep === 1 && state.sizePreset){
+        var t = state.box ? state.box.w / state.maxBoxW : 1;
+        computeDisplaySize();
+        fitBoxToPreset(false);
+        var cx = state.box.x + state.box.w / 2;
+        var cy = state.box.y + state.box.h / 2;
+        setBoxSize(state.maxBoxW * t, state.maxBoxH * t, cx, cy);
+      }
+    };
+    img.src = canvas.toDataURL('image/jpeg', 0.95);
+  }
+
+  function rotatePhoto(){
+    state.rotation = (state.rotation + 90) % 360;
+    rebuildRotatedImage();
+  }
+
+  function setupUploadStep(){
+    var dz = $('#dropzone');
+    var input = $('#fileInput');
+    dz.addEventListener('click', function(){ input.click(); });
+    input.addEventListener('change', function(e){
+      if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
+    });
+    ;['dragenter','dragover'].forEach(function(evt){
+      dz.addEventListener(evt, function(e){ e.preventDefault(); dz.classList.add('drag'); });
+    });
+    ;['dragleave','drop'].forEach(function(evt){
+      dz.addEventListener(evt, function(e){ e.preventDefault(); dz.classList.remove('drag'); });
+    });
+    dz.addEventListener('drop', function(e){
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+    });
+  }
+
+  /* ---------- STEP 1: 사이즈 선택 + 크롭 영역 ---------- */
+  function renderSizePills(){
+    var wrap = $('#sizePills');
+    wrap.innerHTML = '';
+    SIZE_PRESETS.forEach(function(preset){
+      var pill = document.createElement('div');
+      pill.className = 'size-pill' + (state.sizePreset && state.sizePreset.id === preset.id ? ' active' : '');
+      pill.textContent = preset.label;
+      pill.addEventListener('click', function(){
+        state.sizePreset = preset;
+        renderSizePills();
+        fitBoxToPreset(true);
+        $('#boxScaleSlider').value = 100;
+      });
+      wrap.appendChild(pill);
+    });
+  }
+
+  function computeDisplaySize(){
+    var maxW = Math.min(400, window.innerWidth - 32 - 36);
+    maxW = Math.max(maxW, 220);
+    var maxH = 460;
+    var scale = Math.min(maxW / state.naturalW, maxH / state.naturalH);
+    state.dispScale = scale;
+    state.dispW = Math.round(state.naturalW * scale);
+    state.dispH = Math.round(state.naturalH * scale);
+    var outer = $('#cropOuter');
+    outer.style.width = state.dispW + 'px';
+    outer.style.height = state.dispH + 'px';
+  }
+
+  function fitBoxToPreset(preserveCenter){
+    var ratio = state.sizePreset.widthCm / state.sizePreset.heightCm;
+    var maxBoxW, maxBoxH;
+    if (state.dispW / state.dispH > ratio){
+      maxBoxH = state.dispH;
+      maxBoxW = maxBoxH * ratio;
+    } else {
+      maxBoxW = state.dispW;
+      maxBoxH = maxBoxW / ratio;
+    }
+    state.maxBoxW = maxBoxW;
+    state.maxBoxH = maxBoxH;
+
+    var cx, cy;
+    if (preserveCenter && state.box){
+      cx = state.box.x + state.box.w / 2;
+      cy = state.box.y + state.box.h / 2;
+    } else {
+      cx = state.dispW / 2;
+      cy = state.dispH / 2;
+    }
+    setBoxSize(maxBoxW, maxBoxH, cx, cy);
+  }
+
+  function setBoxSize(w, h, cx, cy){
+    var x = clamp(cx - w / 2, 0, Math.max(0, state.dispW - w));
+    var y = clamp(cy - h / 2, 0, Math.max(0, state.dispH - h));
+    state.box = { x: x, y: y, w: w, h: h };
+    renderBox();
+  }
+
+  function renderBox(){
+    var box = $('#cropBox');
+    box.style.left = state.box.x + 'px';
+    box.style.top = state.box.y + 'px';
+    box.style.width = state.box.w + 'px';
+    box.style.height = state.box.h + 'px';
+  }
+
+  function setupCropBoxDrag(){
+    var boxEl = $('#cropBox');
+    var dragging = false;
+    var startX, startY, startBoxX, startBoxY;
+
+    boxEl.addEventListener('pointerdown', function(e){
+      dragging = true;
+      startX = e.clientX; startY = e.clientY;
+      startBoxX = state.box.x; startBoxY = state.box.y;
+      try { boxEl.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    boxEl.addEventListener('pointermove', function(e){
+      if (!dragging) return;
+      var nx = startBoxX + (e.clientX - startX);
+      var ny = startBoxY + (e.clientY - startY);
+      nx = clamp(nx, 0, Math.max(0, state.dispW - state.box.w));
+      ny = clamp(ny, 0, Math.max(0, state.dispH - state.box.h));
+      state.box.x = nx; state.box.y = ny;
+      renderBox();
+    });
+    ;['pointerup','pointercancel'].forEach(function(evt){
+      boxEl.addEventListener(evt, function(){ dragging = false; });
+    });
+
+    $('#boxScaleSlider').addEventListener('input', function(e){
+      var t = Number(e.target.value) / 100;
+      var cx = state.box.x + state.box.w / 2;
+      var cy = state.box.y + state.box.h / 2;
+      setBoxSize(state.maxBoxW * t, state.maxBoxH * t, cx, cy);
+    });
+  }
+
+  function initCropStep(){
+    if (!state.sizePreset) state.sizePreset = SIZE_PRESETS[0];
+    computeDisplaySize();
+    renderSizePills();
+    fitBoxToPreset(false);
+    $('#boxScaleSlider').value = 100;
+  }
+
+  /* ---------- STEP 2: 필터 ---------- */
+  function renderFilterGrid(){
+    var grid = $('#filterGrid');
+    grid.innerHTML = '';
+    Object.keys(FILTERS).forEach(function(key){
+      var chip = document.createElement('div');
+      chip.className = 'filter-chip' + (key === state.filterMode ? ' active' : '');
+      chip.textContent = FILTERS[key].label;
+      chip.addEventListener('click', function(){
+        state.filterMode = key;
+        $all('.filter-chip').forEach(function(c){ c.classList.remove('active'); });
+        chip.classList.add('active');
+        redrawFilterPreview();
+      });
+      grid.appendChild(chip);
+    });
+  }
+
+  function setupFilterSliders(){
+    function bind(id, prop, labelId){
+      var el = $(id);
+      el.addEventListener('input', function(){
+        state[prop] = Number(el.value);
+        $(labelId).textContent = el.value + '%';
+        redrawFilterPreview();
+      });
+    }
+    bind('#brightnessSlider', 'brightness', '#brightnessVal');
+    bind('#contrastSlider', 'contrast', '#contrastVal');
+    bind('#saturationSlider', 'saturation', '#saturationVal');
+  }
+
+  // 선택된 크롭 영역(box)을 주어진 캔버스 컨텍스트에 필터를 입혀서 그려줍니다.
+  // (필터 미리보기, 최종 인화 이미지 생성에 공통으로 사용)
+  function drawCroppedImage(ctx, targetW, targetH){
+    var sx = state.box.x / state.dispScale;
+    var sy = state.box.y / state.dispScale;
+    var sw = state.box.w / state.dispScale;
+    var sh = state.box.h / state.dispScale;
+    ctx.clearRect(0, 0, targetW, targetH);
+    ctx.save();
+    ctx.filter = currentFilterCss() || 'none';
+    ctx.drawImage(state.imgEl, sx, sy, sw, sh, 0, 0, targetW, targetH);
+    ctx.restore();
+  }
+
+  function initFilterStep(){
+    var preset = state.sizePreset;
+    var ratio = preset.widthCm / preset.heightCm;
+    var canvas = $('#filterPreviewCanvas');
+    var baseSize = 480;
+    if (ratio >= 1){
+      canvas.width = baseSize;
+      canvas.height = Math.round(baseSize / ratio);
+    } else {
+      canvas.height = baseSize;
+      canvas.width = Math.round(baseSize * ratio);
+    }
+    redrawFilterPreview();
+  }
+
+  function redrawFilterPreview(){
+    var canvas = $('#filterPreviewCanvas');
+    var ctx = canvas.getContext('2d');
+    drawCroppedImage(ctx, canvas.width, canvas.height);
+  }
+
+  /* ---------- STEP 3: 최종 미리보기 & 전송 ---------- */
+  function buildFinalCanvas(){
+    var preset = state.sizePreset;
+    var pxW = Math.round(preset.widthCm / CM_PER_INCH * PRINT_DPI);
+    var pxH = Math.round(preset.heightCm / CM_PER_INCH * PRINT_DPI);
+    var canvas = $('#finalCanvas');
+    canvas.width = pxW;
+    canvas.height = pxH;
+    var ctx = canvas.getContext('2d');
+    drawCroppedImage(ctx, pxW, pxH);
+    return canvas;
+  }
+
+  function buildPreview(){
+    var canvas = buildFinalCanvas();
+    $('#previewMeta').textContent =
+      state.sizePreset.label + ' · 실제 인화 해상도 ' + canvas.width + '×' + canvas.height + 'px';
+  }
+
+  function getFinalDataUrl(){
+    return $('#finalCanvas').toDataURL('image/jpeg', 0.92);
+  }
+
+  /* ---------- 서버 전송 ---------- */
+  function submitOrder(){
+    var statusBox = $('#statusBox');
+    var submitBtn = $('#submitBtn');
+
+    if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.indexOf('PASTE_YOUR') === 0){
+      statusBox.className = 'status-box show error';
+      statusBox.textContent = '⚠ 아직 전송 주소(GAS_WEB_APP_URL)가 설정되지 않았어요. README를 참고해 설정을 완료해주세요.';
+      return;
+    }
+
+    submitBtn.disabled = true;
+    statusBox.className = 'status-box show loading';
+    statusBox.textContent = '전송 중입니다... 잠시만 기다려주세요.';
+
+    var dataUrl = getFinalDataUrl();
+    var base64 = dataUrl.split(',')[1];
+    var payload = {
+      image: base64,
+      sizeLabel: state.sizePreset.label,
+      sellerId: sellerId || '(미지정)',
+      orderNote: $('#orderNote').value || ''
+    };
+
+    fetch(GAS_WEB_APP_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    })
+    .then(function(res){ return res.json(); })
+    .then(function(json){
+      if (json && json.ok){
+        goToStep(4);
+      } else {
+        throw new Error((json && json.error) || '알 수 없는 오류');
+      }
+    })
+    .catch(function(err){
+      statusBox.className = 'status-box show error';
+      statusBox.textContent = '전송에 실패했어요 (' + err.message + '). 인터넷 연결을 확인하고 다시 시도해주세요.';
+      submitBtn.disabled = false;
+    });
+  }
+
+  function downloadImage(){
+    var a = document.createElement('a');
+    a.href = getFinalDataUrl();
+    a.download = 'photo_' + Date.now() + '.jpg';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  /* ---------- 초기화 & 네비게이션 ---------- */
+  function resetAll(){
+    state.sizePreset = null;
+    state.box = null;
+    state.baseImg = null;
+    state.rotation = 0;
+    state.filterMode = 'none';
+    state.brightness = 100; state.contrast = 100; state.saturation = 100;
+    $('#brightnessSlider').value = 100; $('#contrastSlider').value = 100; $('#saturationSlider').value = 100;
+    $('#brightnessVal').textContent = '100%'; $('#contrastVal').textContent = '100%'; $('#saturationVal').textContent = '100%';
+    $('#orderNote').value = '';
+    $('#statusBox').className = 'status-box';
+    $('#submitBtn').disabled = false;
+    setDropzoneText('탭해서 사진 선택 (또는 여기로 드래그)');
+    $('#toStep1').disabled = true;
+    $('#photoImg').src = '';
+    renderFilterGrid();
+    goToStep(0);
+  }
+
+  function init(){
+    renderFilterGrid();
+    setupUploadStep();
+    setupCropBoxDrag();
+    setupFilterSliders();
+
+    $('#toStep1').addEventListener('click', function(){
+      goToStep(1);
+      setTimeout(initCropStep, 30);
+    });
+    $('#backTo0').addEventListener('click', function(){ goToStep(0); });
+    $('#rotateBtn').addEventListener('click', rotatePhoto);
+
+    $('#toStep2').addEventListener('click', function(){
+      goToStep(2);
+      setTimeout(initFilterStep, 30);
+    });
+    $('#backTo1').addEventListener('click', function(){ goToStep(1); });
+
+    $('#toStep3').addEventListener('click', function(){
+      buildPreview();
+      goToStep(3);
+    });
+    $('#backTo2').addEventListener('click', function(){ goToStep(2); });
+
+    $('#submitBtn').addEventListener('click', submitOrder);
+    $('#downloadBtn').addEventListener('click', downloadImage);
+    $('#restartBtn').addEventListener('click', resetAll);
+
+    window.addEventListener('resize', function(){
+      if (currentStep === 1 && state.sizePreset){
+        var t = state.box ? state.box.w / state.maxBoxW : 1;
+        computeDisplaySize();
+        fitBoxToPreset(false);
+        var cx = state.box.x + state.box.w / 2;
+        var cy = state.box.y + state.box.h / 2;
+        setBoxSize(state.maxBoxW * t, state.maxBoxH * t, cx, cy);
+      }
+    });
+
+    goToStep(0);
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+</body>
+</html>
