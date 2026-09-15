@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>포토 마그넷 편집기</title>
+<style>
+  :root{
+    --brand:#ff6b4a;
+    --brand-dark:#e6512f;
+    --ink:#1f2430;
+    --sub:#6b7280;
+    --line:#e5e7eb;
+    --bg:#f7f7f9;
+    --card:#ffffff;
+    --danger:#e0453a;
+    --good:#2a9d5c;
+    --warn:#c9860f;
+    --kakao:#fee500;
+    --kakao-ink:#3c1e1e;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:40px;
+  }
+  #app{max-width:520px;margin:0 auto;padding:0 16px;}
+  header{padding:20px 0 8px;text-align:center;}
+  header h1{font-size:19px;margin:0 0 4px;}
+  header p{font-size:13px;color:var(--sub);margin:0;}
+
+  .progress{display:flex;gap:6px;justify-content:center;margin:14px 0 20px;}
+  .progress span{width:26px;height:4px;border-radius:2px;background:var(--line);}
+  .progress span.active{background:var(--brand);}
+  .progress span.done{background:#ffcabb;}
+
+  .card{background:var(--card);border-radius:16px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:14px;}
+  .step{display:none;}
+  .step.visible{display:block;}
+
+  h2.step-title{font-size:16px;margin:0 0 4px;}
+  .step-desc{font-size:13px;color:var(--sub);margin:0 0 16px;line-height:1.5;}
+
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    border:none;border-radius:10px;padding:13px 18px;font-size:15px;font-weight:600;
+    cursor:pointer;width:100%;text-decoration:none;
+  }
+  .btn-primary{background:var(--brand);color:#fff;}
+  .btn-primary:active{background:var(--brand-dark);}
+  .btn-primary:disabled{background:#f0b7a8;cursor:not-allowed;}
+  .btn-secondary{background:#fff;color:var(--ink);border:1.5px solid var(--line);}
+  .btn-secondary:disabled{color:#c3c6cc;cursor:not-allowed;}
+  .btn-ghost{background:transparent;color:var(--sub);text-decoration:underline;padding:8px;font-size:13px;}
+  .btn-danger-ghost{background:transparent;color:var(--danger);text-decoration:underline;padding:8px;font-size:12px;}
+  .btn-kakao{background:var(--kakao);color:var(--kakao-ink);}
+  .btn-kakao:active{filter:brightness(0.95);}
+  .btn-row{display:flex;gap:10px;margin-top:16px;}
+  .btn-row .btn{width:auto;flex:1;}
+
+  .dropzone{
+    border:2px dashed #d3d6dc;border-radius:14px;padding:36px 16px;text-align:center;
+    color:var(--sub);cursor:pointer;background:#fafafb;
+  }
+  .dropzone.drag{border-color:var(--brand);background:#fff5f2;}
+  .dropzone .icon{font-size:34px;display:block;margin-bottom:8px;}
+  .dropzone .fmt-note{font-size:11px;color:#a2a6ad;margin-top:8px;}
+  .dropzone .cap-note{font-size:11px;color:var(--brand-dark);margin-top:6px;font-weight:600;}
+  input[type=file]{display:none;}
+
+  /* 업로드된 사진 목록(트레이) */
+  .photo-tray{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px;margin-top:14px;}
+  .photo-tile{position:relative;aspect-ratio:1/1;border-radius:10px;overflow:hidden;background:#eee;}
+  .photo-tile img{width:100%;height:100%;object-fit:cover;display:block;}
+  .photo-tile .rm{
+    position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;
+    background:rgba(0,0,0,.6);color:#fff;border:none;font-size:12px;line-height:20px;
+    text-align:center;cursor:pointer;padding:0;
+  }
+  .photo-tile.add{
+    border:2px dashed #d3d6dc;display:flex;align-items:center;justify-content:center;
+    color:var(--sub);font-size:26px;cursor:pointer;background:#fafafb;
+  }
+  .tray-count{font-size:12px;color:var(--sub);margin-top:10px;text-align:center;}
+
+  /* 사이즈 선택 필 버튼 (사진 편집 화면 안에서 사용) */
+  .size-pills-block{margin-bottom:16px;}
+  .size-pills-block .label{font-size:12px;font-weight:700;color:var(--ink);margin-bottom:8px;}
+  .size-pills{display:flex;gap:8px;flex-wrap:wrap;}
+  .size-pill{
+    padding:9px 14px;border-radius:999px;border:1.5px solid var(--line);background:#fff;
+    font-size:13px;font-weight:600;cursor:pointer;color:var(--ink);
+  }
+  .size-pill.active{border-color:var(--brand);background:var(--brand);color:#fff;}
+
+  /* 사진 편집(크롭+필터) 화면 상단 진행 표시 */
+  .photo-counter{text-align:center;font-size:13px;font-weight:700;color:var(--ink);margin-bottom:2px;}
+  .photo-counter .name{display:block;font-size:11px;font-weight:400;color:var(--sub);margin-top:2px;}
+
+  .thumb-strip{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 10px;margin-bottom:6px;-webkit-overflow-scrolling:touch;}
+  .thumb-strip .t{
+    flex:0 0 auto;width:50px;height:50px;border-radius:8px;overflow:hidden;
+    border:2px solid transparent;position:relative;cursor:pointer;background:#eee;
+  }
+  .thumb-strip .t img{width:100%;height:100%;object-fit:cover;display:block;}
+  .thumb-strip .t.current{border-color:var(--brand);}
+  .thumb-strip .t.visited:not(.current)::after{
+    content:'';position:absolute;bottom:2px;right:2px;width:7px;height:7px;border-radius:50%;background:var(--good);
+    box-shadow:0 0 0 1.5px #fff;
+  }
+
+  /* 크롭 화면 (업로드된 사진 위에 빨간 네모 오버레이) */
+  .crop-wrap{display:flex;justify-content:center;}
+  .crop-outer{
+    position:relative;overflow:hidden;background:#111;border-radius:10px;
+    touch-action:none;max-width:100%;
+  }
+  .crop-outer img{
+    display:block;width:100%;height:100%;
+    user-select:none;-webkit-user-drag:none;pointer-events:none;
+  }
+  .crop-box{
+    position:absolute;border:3px solid #ff3b30;box-sizing:border-box;
+    box-shadow:0 0 0 9999px rgba(0,0,0,.45);
+    cursor:grab;touch-action:none;
+  }
+  .crop-box:active{cursor:grabbing;}
+
+  .zoom-row{display:flex;align-items:center;gap:10px;width:100%;margin-top:14px;}
+  .zoom-row span{font-size:12px;color:var(--sub);white-space:nowrap;}
+  input[type=range]{width:100%;accent-color:var(--brand);}
+
+  .rotate-row{display:flex;justify-content:center;gap:8px;margin-bottom:12px;}
+  .rotate-btn{
+    display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:999px;
+    border:1.5px solid var(--line);background:#fff;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;
+  }
+
+  hr.sep{border:none;border-top:1px solid var(--line);margin:18px 0;}
+
+  /* 필터 미리보기 (편집 화면 내) */
+  .filter-preview-frame{
+    margin:0 auto 16px;border-radius:10px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.12);
+    background:#fff;max-width:220px;
+  }
+  .filter-preview-frame canvas{display:block;width:100%;height:auto;}
+
+  .filter-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
+  .filter-chip{
+    border:1.5px solid var(--line);border-radius:10px;padding:10px 4px;text-align:center;
+    font-size:12px;background:#fff;cursor:pointer;color:var(--ink);
+  }
+  .filter-chip.active{border-color:var(--brand);background:#fff5f2;color:var(--brand-dark);font-weight:700;}
+
+  .slider-block{margin-bottom:12px;}
+  .slider-block label{display:flex;justify-content:space-between;font-size:12px;color:var(--sub);margin-bottom:4px;}
+
+  /* 최종 검토(여러 장) */
+  .review-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;margin-bottom:16px;}
+  .review-tile{position:relative;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.12);background:#fff;}
+  .review-tile img{width:100%;display:block;}
+  .review-tile .rm{
+    position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;
+    background:rgba(0,0,0,.55);color:#fff;border:none;font-size:13px;cursor:pointer;line-height:22px;padding:0;
+  }
+  .review-tile .idx{
+    position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,.55);color:#fff;
+    font-size:10px;padding:2px 6px;border-radius:999px;
+  }
+  .review-tile .size-tag{
+    position:absolute;bottom:4px;right:4px;background:rgba(255,107,74,.9);color:#fff;
+    font-size:10px;padding:2px 6px;border-radius:999px;
+  }
+
+  .capacity-box{border-radius:12px;padding:12px 14px;font-size:13px;margin-bottom:14px;background:#f1f3f8;color:var(--ink);}
+  .capacity-box.warn{background:#fff7e8;color:var(--warn);}
+  .capacity-box.error{background:#fdecea;color:var(--danger);}
+  .capacity-box .cap-title{font-weight:700;margin-bottom:2px;}
+  .capacity-box .cap-sizes{font-size:12px;margin-top:4px;color:inherit;opacity:.85;}
+  .capacity-bar{height:6px;border-radius:3px;background:#e2e5ec;margin-top:8px;overflow:hidden;}
+  .capacity-bar-fill{height:100%;background:var(--good);}
+  .capacity-bar-fill.warn{background:var(--warn);}
+  .capacity-bar-fill.error{background:var(--danger);}
+
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:13px;font-weight:600;margin-bottom:6px;}
+  .field label .req{color:var(--danger);font-weight:700;}
+  .field input[type=text]{
+    width:100%;padding:12px;border:1.5px solid var(--line);border-radius:10px;font-size:14px;
+  }
+  .field .hint{font-size:11px;color:var(--sub);margin-top:4px;}
+  .field.field-error input[type=text]{border-color:var(--danger);background:#fff8f7;}
+  .field.field-error .hint{color:var(--danger);font-weight:600;}
+
+  .status-box{
+    display:none;text-align:center;padding:12px;border-radius:10px;font-size:13px;margin-bottom:12px;
+  }
+  .status-box.show{display:block;}
+  .status-box.loading{background:#eef2ff;color:#3b4ba8;}
+  .status-box.error{background:#fdecea;color:var(--danger);}
+
+  .done-icon{font-size:52px;text-align:center;margin-bottom:6px;}
+  .done-title{text-align:center;font-size:17px;font-weight:700;margin-bottom:6px;}
+  .done-desc{text-align:center;font-size:13px;color:var(--sub);margin-bottom:20px;line-height:1.6;}
+
+  .kakao-box{
+    border-radius:14px;padding:16px;background:#fffbe6;border:1.5px solid #fbe86a;
+    text-align:center;margin-bottom:8px;
+  }
+  .kakao-box .kakao-desc{font-size:13px;color:#6b5d1a;margin:0 0 12px;line-height:1.5;}
+
+  .contact-footer{text-align:center;font-size:12px;color:var(--sub);margin-top:18px;}
+  .contact-footer a{color:var(--brand-dark);font-weight:600;text-decoration:none;}
+
+  footer{text-align:center;font-size:11px;color:#b4b7bd;margin-top:24px;}
+  footer a{color:#a2a6ad;text-decoration:none;}
+  footer a:hover{color:#6b7280;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <h1>📸 포토 마그넷 편집기</h1>
+    <p>사진 여러 장을 한 번에 올리고, 각각 편집해서 한 번에 주문하세요</p>
+  </header>
+
+  <div class="progress" id="progressBar">
+    <span data-step="0"></span>
+    <span data-step="1"></span>
+    <span data-step="2"></span>
+  </div>
+
+  <!-- STEP 0: 업로드 (여러 장) -->
+  <div class="step" data-step="0">
+    <div class="card">
+      <h2 class="step-title">① 사진을 업로드해주세요</h2>
+      <p class="step-desc">휴대폰이나 컴퓨터에 저장된 사진을 여러 장 한 번에 선택할 수 있어요.</p>
+      <div class="dropzone" id="dropzone">
+        <span class="icon">🖼️</span>
+        <div id="dropzoneText">탭해서 사진 선택 (여러 장 선택 가능 / 드래그도 가능)</div>
+        <div class="fmt-note">JPG, PNG, WEBP, HEIC(아이폰 사진) 등 대부분의 사진 형식을 지원해요</div>
+        <div class="cap-note">⚠ 사진은 한 번의 주문에서 총 25MB까지 보낼 수 있어요. 너무 많으면 나눠서 주문해주세요.</div>
+      </div>
+      <input type="file" id="fileInput" accept="image/*,.heic,.heif,.jpg,.jpeg,.png,.webp,.gif,.bmp" multiple>
+
+      <div class="photo-tray" id="photoTray"></div>
+      <div class="tray-count" id="trayCount"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="toEditStep" disabled>사진 편집 시작</button>
+    </div>
+  </div>
+
+  <!-- STEP 1: 사이즈 선택 + 사진별 크롭 + 필터 편집 (통합) -->
+  <div class="step" data-step="1">
+    <div class="card">
+      <h2 class="step-title">② 사이즈를 고르고 사진을 편집해주세요</h2>
+      <p class="step-desc">사진마다 원하는 인화 사이즈를 자유롭게 골라보면서 편집할 수 있어요. 사진마다 다른 사이즈를 지정해도 괜찮아요. 사이즈를 바꾸면 이 사진의 크롭 영역이 새로 맞춰져요.</p>
+
+      <div class="photo-counter" id="photoCounter">사진 1 / 1<span class="name" id="photoName"></span></div>
+      <div class="thumb-strip" id="thumbStrip"></div>
+
+      <div class="size-pills-block">
+        <div class="label">이 사진의 인화 사이즈</div>
+        <div class="size-pills" id="sizePills"></div>
+      </div>
+
+      <p class="step-desc">빨간 네모 안쪽이 실제로 인화되는 부분이에요. 드래그로 옮기고, 슬라이더로 크기를 조절하세요.</p>
+
+      <div class="rotate-row">
+        <button type="button" class="rotate-btn" id="rotateBtn">↻ 이 사진 90° 회전</button>
+      </div>
+
+      <div class="crop-wrap">
+        <div class="crop-outer" id="cropOuter">
+          <img id="photoImg" alt="업로드한 사진" draggable="false">
+          <div class="crop-box" id="cropBox"></div>
+        </div>
+      </div>
+
+      <div class="zoom-row">
+        <span>영역 크기</span>
+        <input type="range" id="boxScaleSlider" min="30" max="100" value="100">
+      </div>
+
+      <hr class="sep">
+
+      <div class="filter-preview-frame">
+        <img id="filterPreviewImg" style="width:100%;height:auto;display:block;border-radius:10px;">
+        <canvas id="filterPreviewCanvas" style="display:none;"></canvas>
+      </div>
+      <div class="filter-grid" id="filterGrid"></div>
+      <div class="slider-block">
+        <label><span>밝기</span><span id="brightnessVal">100%</span></label>
+        <input type="range" id="brightnessSlider" min="60" max="160" value="100">
+      </div>
+      <div class="slider-block">
+        <label><span>대비</span><span id="contrastVal">100%</span></label>
+        <input type="range" id="contrastSlider" min="60" max="160" value="100">
+      </div>
+      <div class="slider-block">
+        <label><span>채도</span><span id="saturationVal">100%</span></label>
+        <input type="range" id="saturationSlider" min="0" max="200" value="100">
+      </div>
+
+      <div style="text-align:center;">
+        <button type="button" class="btn-danger-ghost" id="removeCurrentPhoto">이 사진 주문에서 빼기</button>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" id="prevPhoto">이전 사진</button>
+      <button class="btn btn-primary" id="nextPhoto">다음 사진</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="backToUpload" style="width:100%;">사진 목록으로 돌아가기 (추가/삭제)</button>
+    </div>
+  </div>
+
+  <!-- STEP 2: 전체 검토 & 전송 -->
+  <div class="step" data-step="2">
+    <div class="card">
+      <h2 class="step-title">③ 전체 사진을 확인하고 저장해주세요</h2>
+      <p class="step-desc">이대로 제작이 진행돼요. 잘못된 사진은 ✕ 눌러서 뺄 수 있어요.</p>
+
+      <div class="review-grid" id="reviewGrid"></div>
+
+      <div class="capacity-box" id="capacityBox"></div>
+
+      <div class="field" id="orderNoteField">
+        <label for="orderNote">주문자 성함 또는 주문번호 <span class="req">(필수)</span></label>
+        <input type="text" id="orderNote" placeholder="예: 홍길동 / 주문번호 12345">
+        <div class="hint">정확한 배송을 위해 반드시 입력해주세요. 미입력 시 저장할 수 없어요.</div>
+      </div>
+
+      <div class="status-box" id="statusBox"></div>
+
+      <button class="btn btn-primary" id="submitBtn">✅ 이대로 최종 저장하기</button>
+      <button class="btn btn-ghost" id="downloadBtn" style="width:100%;">사진들 개별 다운로드 받기</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" id="backToEdit">다시 편집하기</button>
+    </div>
+  </div>
+
+  <!-- STEP 3: 완료 -->
+  <div class="step" data-step="3">
+    <div class="card">
+      <div class="done-icon">🎉</div>
+      <div class="done-title">전송이 완료되었습니다!</div>
+      <div class="done-desc">편집하신 사진들이 판매자에게 정상적으로 전달되었습니다.<br>제작 및 배송 관련 안내를 기다려주세요.</div>
+
+      <div class="kakao-box">
+        <p class="kakao-desc">사진이 잘 전송됐는지 궁금하시거나 문의사항이 있으시면,<br>아래 카카오톡 채널로 접속해서 메시지를 남겨주세요.</p>
+        <a class="btn btn-kakao" href="https://pf.kakao.com/_vlIFn" target="_blank" rel="noopener">💬 카카오톡 채널에서 전송 여부 확인하기</a>
+      </div>
+
+      <button class="btn btn-secondary" id="restartBtn">새 주문으로 다시 만들기</button>
+    </div>
+  </div>
+
+  <div class="contact-footer">
+    📧 사진 전송: <a href="mailto:jojo2443553@gmail.com">jojo2443553@gmail.com</a> | 
+    💬 문의: <a href="https://pf.kakao.com/_vlIFn" target="_blank" rel="noopener">카카오톡 채널</a>
+  </div>
+  <footer>
+    포토 마그넷 편집기 v6.1<br>
+    <a href="https://script.google.com/home/projects/1xctF4_6ENogB-dKkaeCI3tbBMQMeN6a4qr6F-oZwAj56oDKpnNwW1Yto/edit" target="_blank" rel="noopener" style="font-size:10px;color:#999;text-decoration:none;">Google Apps Script</a>
+  </footer>
+</div>
+
+<!-- 아이폰 HEIC 사진을 브라우저에서 볼 수 있게 변환해주는 라이브러리 -->
+<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+
+<script>
+(function(){
+  "use strict";
+
+  /* =========================================================
+     설정 영역 — 판매자(사용자)가 직접 바꿀 수 있는 부분
+     ========================================================= */
+
+  // 판매 사이즈 옵션. widthCm/heightCm 비율에 맞춰 빨간 네모 가이드가 자동 생성됩니다.
+  // shortLabel은 검토 화면 썸네일에 작게 표시되는 짧은 이름이에요.
+  var SIZE_PRESETS = [
+    { id: 'square',    label: '정사각형 6 x 6cm',      shortLabel: '6x6',      widthCm: 6,   heightCm: 6 },
+    { id: 'rect_84x53', label: '직사각형 8.4 x 5.3cm', shortLabel: '8.4x5.3',  widthCm: 8.4, heightCm: 5.3 }
+  ];
+
+  // ★★★ Google Apps Script 배포 후 발급받은 웹앱 주소로 반드시 교체하세요 ★★★
+  var GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyM1Mf3YQVnbcMjz1TUdXRLpmmYLzm7VlwsdGMRBJCsN-ynt7YekfMe3APIq1D6nIifUg/exec';
+
+  // 최종 인화 이미지 해상도 (인치당 픽셀 수). 300이면 인쇄 품질로 충분합니다.
+  var PRINT_DPI = 300;
+
+  // 한 번 주문(한 통의 이메일)으로 보낼 수 있는 사진 전체 용량 한도.
+  // Gmail 첨부파일 한도(약 25MB)에 맞춰져 있습니다. 필요하면 바꿀 수 있지만,
+  // 너무 크게 늘리면 메일 전송이 실패할 수 있어요.
+  var TOTAL_SIZE_HARD_CAP = 25 * 1024 * 1024;   // 25MB — 이걸 넘으면 전송 자체를 막습니다.
+  var TOTAL_SIZE_TARGET   = 24 * 1024 * 1024;   // 24MB — 자동 화질 압축이 맞추려고 하는 목표치(여유분).
+  var QUALITY_STEPS = [0.92, 0.85, 0.75, 0.65, 0.55, 0.45];
+
+  /* ========================================================= */
+
+  var CM_PER_INCH = 2.54;
+  var photoIdCounter = 0;
+
+  var state = {
+    photos: [],            // 업로드된 사진들의 배열 (아래 makePhoto 참고). 사진마다 sizePreset을 개별로 가짐.
+    currentPhotoIndex: 0,
+    dispW: 0, dispH: 0, dispScale: 1,
+    reviewDataUrls: null,
+    reviewQuality: null,
+    reviewTotalBytes: 0
+  };
+
+  var qs = new URLSearchParams(window.location.search);
+  var sellerId = qs.get('seller') || qs.get('listing') || '';
+
+  /* ---------- 유틸 ---------- */
+  function $(sel){ return document.querySelector(sel); }
+  function $all(sel){ return Array.prototype.slice.call(document.querySelectorAll(sel)); }
+  function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+  function currentPhoto(){ return state.photos[state.currentPhotoIndex]; }
+
+  var FILTERS = {
+    none:      { label: '원본',    css: '' },
+    bw:        { label: '흑백',    css: 'grayscale(1)' },
+    sepia:     { label: '세피아',  css: 'sepia(0.75)' },
+    vivid:     { label: '선명하게', css: 'contrast(1.15) saturate(1.35)' },
+    warm:      { label: '따뜻하게', css: 'sepia(0.25) saturate(1.2) hue-rotate(-8deg)' },
+    cool:      { label: '차갑게',  css: 'saturate(1.1) hue-rotate(10deg)' },
+    bright:    { label: '밝게',    css: 'brightness(1.18)' },
+    soft:      { label: '뽀샤시',  css: 'brightness(1.08) contrast(0.92) saturate(1.05)' }
+  };
+
+  function filterCssFor(p){
+    var base = FILTERS[p.filterMode].css;
+    var extra = 'brightness(' + (p.brightness/100) + ') ' +
+                'contrast(' + (p.contrast/100) + ') ' +
+                'saturate(' + (p.saturation/100) + ')';
+    return (base ? base + ' ' : '') + extra;
+  }
+
+  /* ---------- 진행 단계 표시 ---------- */
+  // 0: 업로드, 1: 사이즈+편집, 2: 검토/전송, 3: 완료
+  var currentStep = 0;
+  var LAST_STEP = 3; // 완료 화면 (진행바를 숨김)
+
+  function goToStep(n){
+    currentStep = n;
+    $all('.step').forEach(function(el){
+      el.classList.toggle('visible', Number(el.getAttribute('data-step')) === n);
+    });
+    $all('#progressBar span').forEach(function(el){
+      var s = Number(el.getAttribute('data-step'));
+      el.classList.toggle('active', s === n);
+      el.classList.toggle('done', s < n && n < LAST_STEP);
+    });
+    $('#progressBar').style.display = (n === LAST_STEP) ? 'none' : 'flex';
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  /* ---------- STEP 0: 업로드 (여러 장) ---------- */
+  function isHeicFile(file){
+    var type = (file.type || '').toLowerCase();
+    var name = (file.name || '').toLowerCase();
+    return type.indexOf('heic') !== -1 || type.indexOf('heif') !== -1 ||
+           name.endsWith('.heic') || name.endsWith('.heif');
+  }
+
+  function setDropzoneText(text){
+    $('#dropzoneText').textContent = text;
+  }
+
+  function defaultDropzoneText(){
+    return '탭해서 사진 선택 (여러 장 선택 가능 / 드래그도 가능)';
+  }
+
+  // 사진 한 장을 처리해서 photo 객체를 만들어주는 Promise.
+  // HEIC(아이폰) 파일이면 jpeg로 변환한 뒤 처리합니다.
+  function processFile(file){
+    return new Promise(function(resolve, reject){
+      function fromBlob(blob){
+        var url = URL.createObjectURL(blob);
+        var img = new Image();
+        img.onload = function(){
+          resolve({
+            id: 'p' + (photoIdCounter++),
+            name: file.name || '사진',
+            baseImg: img,               // 회전 전 원본 이미지
+            baseNaturalW: img.naturalWidth,
+            baseNaturalH: img.naturalHeight,
+            rotation: 0,
+            drawSource: img,            // 실제 캔버스에 그릴 때 쓰는 소스(회전시 canvas로 교체됨)
+            rotatedSrc: url,            // 화면 표시용 <img> src
+            naturalW: img.naturalWidth,
+            naturalH: img.naturalHeight,
+            sizePreset: null,           // 이 사진의 인화 사이즈 — 편집 화면 진입 시 기본값(첫 프리셋)으로 채워짐
+            cropBox: null,              // {x,y,w,h} - 원본(회전반영) 픽셀 좌표 기준
+            maxBox: null,                // {w,h} - 현재 사이즈프리셋 기준 100% 크롭박스
+            zoomPct: 100,
+            filterMode: 'none',
+            brightness: 100, contrast: 100, saturation: 100,
+            visited: false,
+            finalCanvas: null
+          });
+        };
+        img.onerror = function(){ reject(new Error('load-failed')); };
+        img.src = url;
+      }
+
+      if (isHeicFile(file)){
+        if (typeof heic2any === 'undefined'){
+          reject(new Error('heic-unsupported'));
+          return;
+        }
+        heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 })
+          .then(fromBlob)
+          .catch(function(){ reject(new Error('heic-convert-failed')); });
+      } else if (file.type && file.type.indexOf('image/') !== 0){
+        reject(new Error('not-image'));
+      } else {
+        fromBlob(file);
+      }
+    });
+  }
+
+  function handleFiles(fileList){
+    var files = Array.prototype.slice.call(fileList || []);
+    if (!files.length) return;
+
+    var failedCount = 0;
+    var i = 0;
+
+    function next(){
+      if (i >= files.length){
+        setDropzoneText(defaultDropzoneText());
+        renderTray();
+        updateStep0NextBtn();
+        if (failedCount > 0){
+          alert(failedCount + '장은 처리하지 못했어요. (지원 형식: jpg, png, webp, heic 등)');
+        }
+        return;
+      }
+      setDropzoneText('사진 처리 중입니다... (' + (i+1) + '/' + files.length + ')');
+      processFile(files[i]).then(function(photo){
+        state.photos.push(photo);
+      }).catch(function(){
+        failedCount++;
+      }).then(function(){
+        i++;
+        next();
+      });
+    }
+    next();
+  }
+
+  function renderTray(){
+    var tray = $('#photoTray');
+    tray.innerHTML = '';
+    state.photos.forEach(function(p, idx){
+      var tile = document.createElement('div');
+      tile.className = 'photo-tile';
+      var img = document.createElement('img');
+      img.src = p.rotatedSrc;
+      img.alt = p.name;
+      var rm = document.createElement('button');
+      rm.type = 'button';
+      rm.className = 'rm';
+      rm.textContent = '✕';
+      rm.addEventListener('click', function(){
+        state.photos.splice(idx, 1);
+        renderTray();
+        updateStep0NextBtn();
+      });
+      tile.appendChild(img);
+      tile.appendChild(rm);
+      tray.appendChild(tile);
+    });
+
+    var addTile = document.createElement('div');
+    addTile.className = 'photo-tile add';
+    addTile.textContent = '+';
+    addTile.addEventListener('click', function(){ $('#fileInput').click(); });
+    tray.appendChild(addTile);
+
+    $('#trayCount').textContent = state.photos.length > 0
+      ? ('총 ' + state.photos.length + '장 업로드됨')
+      : '';
+  }
+
+  function updateStep0NextBtn(){
+    $('#toEditStep').disabled = state.photos.length === 0;
+  }
+
+  function setupUploadStep(){
+    var dz = $('#dropzone');
+    var input = $('#fileInput');
+    dz.addEventListener('click', function(){ input.click(); });
+    input.addEventListener('change', function(e){
+      if (e.target.files && e.target.files.length){
+        handleFiles(e.target.files);
+        input.value = '';
+      }
+    });
+    ;['dragenter','dragover'].forEach(function(evt){
+      dz.addEventListener(evt, function(e){ e.preventDefault(); dz.classList.add('drag'); });
+    });
+    ;['dragleave','drop'].forEach(function(evt){
+      dz.addEventListener(evt, function(e){ e.preventDefault(); dz.classList.remove('drag'); });
+    });
+    dz.addEventListener('drop', function(e){
+      if (e.dataTransfer.files && e.dataTransfer.files.length){
+        handleFiles(e.dataTransfer.files);
+      }
+    });
+  }
+
+  /* ---------- STEP 1: 사이즈 선택(사진별) + 크롭 + 필터 편집 ---------- */
+  function renderSizePillsForCurrent(){
+    var p = currentPhoto();
+    if (!p) return;
+    var wrap = $('#sizePills');
+    wrap.innerHTML = '';
+    SIZE_PRESETS.forEach(function(preset){
+      var pill = document.createElement('div');
+      pill.className = 'size-pill' + (p.sizePreset && p.sizePreset.id === preset.id ? ' active' : '');
+      pill.textContent = preset.label;
+      pill.addEventListener('click', function(){ setPhotoSizeForCurrent(preset); });
+      wrap.appendChild(pill);
+    });
+  }
+
+  function setPhotoSizeForCurrent(preset){
+    var p = currentPhoto();
+    if (!p) return;
+    if (p.sizePreset && p.sizePreset.id === preset.id) return; // 이미 같은 사이즈면 아무것도 안 함
+    p.sizePreset = preset;
+    // 사이즈가 바뀌면 이 사진의 크롭 박스만 새로 맞춥니다 (다른 사진에는 영향 없음).
+    p.maxBox = null;
+    p.zoomPct = 100;
+    ensureMaxBox(p);
+    p.cropBox = defaultCropBox(p);
+
+    renderSizePillsForCurrent();
+    renderBoxFromNatural(p);
+    $('#boxScaleSlider').value = p.zoomPct;
+    sizeFilterPreviewCanvas(p);
+    redrawEditorFilterPreview();
+  }
+
+  function computeDisplaySizeForPhoto(p){
+    var maxW = Math.min(400, window.innerWidth - 32 - 36);
+    maxW = Math.max(maxW, 220);
+    var maxH = 460;
+    var scale = Math.min(maxW / p.naturalW, maxH / p.naturalH);
+    state.dispScale = scale;
+    state.dispW = Math.round(p.naturalW * scale);
+    state.dispH = Math.round(p.naturalH * scale);
+    var outer = $('#cropOuter');
+    outer.style.width = state.dispW + 'px';
+    outer.style.height = state.dispH + 'px';
+  }
+
+  function ensureMaxBox(p){
+    var ratio = p.sizePreset.widthCm / p.sizePreset.heightCm;
+    var maxBoxW, maxBoxH;
+    if (p.naturalW / p.naturalH > ratio){
+      maxBoxH = p.naturalH;
+      maxBoxW = maxBoxH * ratio;
+    } else {
+      maxBoxW = p.naturalW;
+      maxBoxH = maxBoxW / ratio;
+    }
+    p.maxBox = { w: maxBoxW, h: maxBoxH };
+  }
+
+  function defaultCropBox(p){
+    var t = (p.zoomPct || 100) / 100;
+    var w = p.maxBox.w * t, h = p.maxBox.h * t;
+    var cx = p.naturalW / 2, cy = p.naturalH / 2;
+    return {
+      x: clamp(cx - w/2, 0, Math.max(0, p.naturalW - w)),
+      y: clamp(cy - h/2, 0, Math.max(0, p.naturalH - h)),
+      w: w, h: h
+    };
+  }
+
+  function renderBoxFromNatural(p){
+    var box = $('#cropBox');
+    var s = state.dispScale;
+    box.style.left = (p.cropBox.x * s) + 'px';
+    box.style.top = (p.cropBox.y * s) + 'px';
+    box.style.width = (p.cropBox.w * s) + 'px';
+    box.style.height = (p.cropBox.h * s) + 'px';
+  }
+
+  function setCropBoxSizeNatural(p, w, h, cx, cy){
+    var x = clamp(cx - w/2, 0, Math.max(0, p.naturalW - w));
+    var y = clamp(cy - h/2, 0, Math.max(0, p.naturalH - h));
+    p.cropBox = { x:x, y:y, w:w, h:h };
+    renderBoxFromNatural(p);
+  }
+
+  function setFilterUIFromPhoto(p){
+    $all('.filter-chip').forEach(function(c){
+      c.classList.toggle('active', c.getAttribute('data-key') === p.filterMode);
+    });
+    $('#brightnessSlider').value = p.brightness;
+    $('#contrastSlider').value = p.contrast;
+    $('#saturationSlider').value = p.saturation;
+    $('#brightnessVal').textContent = p.brightness + '%';
+    $('#contrastVal').textContent = p.contrast + '%';
+    $('#saturationVal').textContent = p.saturation + '%';
+  }
+
+  function drawCroppedImage(ctx, targetW, targetH, p){
+    ctx.clearRect(0, 0, targetW, targetH);
+    ctx.save();
+    // Canvas context의 filter는 모바일에서 지원되지 않으므로 사용하지 않음
+    // (CSS filter는 IMG 태그에만 적용 - redrawEditorFilterPreview, renderReviewGrid 참고)
+    ctx.drawImage(p.drawSource, p.cropBox.x, p.cropBox.y, p.cropBox.w, p.cropBox.h, 0, 0, targetW, targetH);
+    ctx.restore();
+  }
+
+  function sizeFilterPreviewCanvas(p){
+    var preset = p.sizePreset;
+    var ratio = preset.widthCm / preset.heightCm;
+    var canvas = $('#filterPreviewCanvas');
+    var baseSize = 380;
+    if (ratio >= 1){
+      canvas.width = baseSize;
+      canvas.height = Math.round(baseSize / ratio);
+    } else {
+      canvas.height = baseSize;
+      canvas.width = Math.round(baseSize * ratio);
+    }
+  }
+
+  function redrawEditorFilterPreview(){
+    var p = currentPhoto();
+    if (!p || !p.cropBox) return;
+    var canvas = $('#filterPreviewCanvas');
+    var ctx = canvas.getContext('2d');
+    
+    // Canvas에 필터 없이 이미지만 그리기
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(p.drawSource, p.cropBox.x, p.cropBox.y, p.cropBox.w, p.cropBox.h, 0, 0, canvas.width, canvas.height);
+    
+    // Canvas를 데이터 URL로 변환
+    var imgDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    
+    // IMG 태그에 표시하고 CSS filter 적용 (모바일 호환성)
+    var img = $('#filterPreviewImg');
+    img.src = imgDataUrl;
+    img.style.filter = filterCssFor(p);
+  }
+
+  function updateThumbStrip(){
+    var strip = $('#thumbStrip');
+    strip.innerHTML = '';
+    state.photos.forEach(function(p, idx){
+      var t = document.createElement('div');
+      t.className = 't' +
+        (idx === state.currentPhotoIndex ? ' current' : '') +
+        (p.visited ? ' visited' : '');
+      var img = document.createElement('img');
+      img.src = p.rotatedSrc;
+      t.appendChild(img);
+      t.addEventListener('click', function(){ enterEditorForPhoto(idx); });
+      strip.appendChild(t);
+    });
+    // 현재 썸네일이 보이도록 스크롤
+    var currentEl = strip.children[state.currentPhotoIndex];
+    if (currentEl && currentEl.scrollIntoView){
+      currentEl.scrollIntoView({ inline: 'center', block: 'nearest' });
+    }
+  }
+
+  function updatePhotoCounter(){
+    var p = currentPhoto();
+    $('#photoCounter').innerHTML = '사진 ' + (state.currentPhotoIndex+1) + ' / ' + state.photos.length +
+      '<span class="name" id="photoName">' + (p ? escapeHtml(p.name) : '') + '</span>';
+  }
+
+  function escapeHtml(s){
+    var div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  function updateEditorNavButtons(){
+    $('#prevPhoto').disabled = state.currentPhotoIndex === 0;
+    var isLast = state.currentPhotoIndex === state.photos.length - 1;
+    $('#nextPhoto').textContent = isLast ? '검토 화면으로 →' : '다음 사진 →';
+  }
+
+  function enterEditorForPhoto(idx){
+    if (idx < 0 || idx >= state.photos.length) return;
+    state.currentPhotoIndex = idx;
+    var p = currentPhoto();
+    p.visited = true;
+    if (!p.sizePreset) p.sizePreset = SIZE_PRESETS[0];
+
+    $('#photoImg').src = p.rotatedSrc;
+    computeDisplaySizeForPhoto(p);
+    if (!p.maxBox) ensureMaxBox(p);
+    if (!p.cropBox) p.cropBox = defaultCropBox(p);
+    renderBoxFromNatural(p);
+    $('#boxScaleSlider').value = p.zoomPct;
+
+    renderSizePillsForCurrent();
+    setFilterUIFromPhoto(p);
+    sizeFilterPreviewCanvas(p);
+    redrawEditorFilterPreview();
+
+    updateThumbStrip();
+    updatePhotoCounter();
+    updateEditorNavButtons();
+  }
+
+  function rotateCurrentPhoto(){
+    var p = currentPhoto();
+    if (!p) return;
+    p.rotation = (p.rotation + 90) % 360;
+    var swapped = (p.rotation === 90 || p.rotation === 270);
+    var baseW = p.baseNaturalW, baseH = p.baseNaturalH;
+    var outW = swapped ? baseH : baseW;
+    var outH = swapped ? baseW : baseH;
+
+    var canvas = document.createElement('canvas');
+    canvas.width = outW;
+    canvas.height = outH;
+    var ctx = canvas.getContext('2d');
+    ctx.save();
+    ctx.translate(outW/2, outH/2);
+    ctx.rotate(p.rotation * Math.PI / 180);
+    ctx.drawImage(p.baseImg, -baseW/2, -baseH/2, baseW, baseH);
+    ctx.restore();
+
+    p.drawSource = canvas;
+    p.rotatedSrc = canvas.toDataURL('image/jpeg', 0.95);
+    p.naturalW = outW;
+    p.naturalH = outH;
+    p.cropBox = null;
+    p.maxBox = null;
+    p.zoomPct = 100;
+
+    enterEditorForPhoto(state.currentPhotoIndex);
+  }
+
+  function setupCropBoxDrag(){
+    var boxEl = $('#cropBox');
+    var dragging = false;
+    var startX, startY, startBoxX, startBoxY;
+
+    boxEl.addEventListener('pointerdown', function(e){
+      var p = currentPhoto();
+      if (!p) return;
+      dragging = true;
+      startX = e.clientX; startY = e.clientY;
+      startBoxX = p.cropBox.x; startBoxY = p.cropBox.y;
+      try { boxEl.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    boxEl.addEventListener('pointermove', function(e){
+      if (!dragging) return;
+      var p = currentPhoto();
+      var s = state.dispScale;
+      var nx = startBoxX + (e.clientX - startX) / s;
+      var ny = startBoxY + (e.clientY - startY) / s;
+      nx = clamp(nx, 0, Math.max(0, p.naturalW - p.cropBox.w));
+      ny = clamp(ny, 0, Math.max(0, p.naturalH - p.cropBox.h));
+      p.cropBox.x = nx; p.cropBox.y = ny;
+      renderBoxFromNatural(p);
+      redrawEditorFilterPreview();
+    });
+    ;['pointerup','pointercancel'].forEach(function(evt){
+      boxEl.addEventListener(evt, function(){ dragging = false; });
+    });
+
+    $('#boxScaleSlider').addEventListener('input', function(e){
+      var p = currentPhoto();
+      if (!p) return;
+      var t = Number(e.target.value) / 100;
+      p.zoomPct = Number(e.target.value);
+      var cx = p.cropBox.x + p.cropBox.w/2;
+      var cy = p.cropBox.y + p.cropBox.h/2;
+      setCropBoxSizeNatural(p, p.maxBox.w * t, p.maxBox.h * t, cx, cy);
+      redrawEditorFilterPreview();
+    });
+  }
+
+  function renderFilterGrid(){
+    var grid = $('#filterGrid');
+    grid.innerHTML = '';
+    Object.keys(FILTERS).forEach(function(key){
+      var chip = document.createElement('div');
+      chip.className = 'filter-chip';
+      chip.setAttribute('data-key', key);
+      chip.textContent = FILTERS[key].label;
+      chip.addEventListener('click', function(){
+        var p = currentPhoto();
+        if (!p) return;
+        p.filterMode = key;
+        $all('.filter-chip').forEach(function(c){ c.classList.remove('active'); });
+        chip.classList.add('active');
+        redrawEditorFilterPreview();
+      });
+      grid.appendChild(chip);
+    });
+  }
+
+  function setupFilterSliders(){
+    function bind(id, prop, labelId){
+      var el = $(id);
+      function handleChange(){
+        var p = currentPhoto();
+        if (!p) return;
+        p[prop] = Number(el.value);
+        $(labelId).textContent = el.value + '%';
+        redrawEditorFilterPreview();
+      }
+      // 모바일과 데스크톱 모두 지원: input(드래그 중), change(터치 끝)
+      el.addEventListener('input', handleChange);
+      el.addEventListener('change', handleChange);
+    }
+    bind('#brightnessSlider', 'brightness', '#brightnessVal');
+    bind('#contrastSlider', 'contrast', '#contrastVal');
+    bind('#saturationSlider', 'saturation', '#saturationVal');
+  }
+
+  function removeCurrentPhoto(){
+    if (state.photos.length === 0) return;
+    var idx = state.currentPhotoIndex;
+    state.photos.splice(idx, 1);
+    if (state.photos.length === 0){
+      goToStep(0);
+      renderTray();
+      updateStep0NextBtn();
+      return;
+    }
+    var nextIdx = Math.min(idx, state.photos.length - 1);
+    enterEditorForPhoto(nextIdx);
+  }
+
+  /* ---------- STEP 2: 전체 검토 & 전송 ---------- */
+  function dataUrlBytes(dataUrl){
+    var base64 = dataUrl.split(',')[1] || '';
+    var len = base64.length;
+    var padding = 0;
+    if (base64.endsWith('==')) padding = 2;
+    else if (base64.endsWith('=')) padding = 1;
+    return Math.max(0, Math.floor(len * 0.75) - padding);
+  }
+
+  function formatMB(bytes){
+    return (bytes / (1024*1024)).toFixed(1);
+  }
+
+  function computeAndRenderReview(){
+    state.photos.forEach(function(p){
+      var preset = p.sizePreset || SIZE_PRESETS[0];
+      var pxW = Math.round(preset.widthCm / CM_PER_INCH * PRINT_DPI);
+      var pxH = Math.round(preset.heightCm / CM_PER_INCH * PRINT_DPI);
+      if (!p.finalCanvas) p.finalCanvas = document.createElement('canvas');
+      p.finalCanvas.width = pxW;
+      p.finalCanvas.height = pxH;
+      var ctx = p.finalCanvas.getContext('2d');
+      drawCroppedImage(ctx, pxW, pxH, p);
+    });
+
+    var chosenQuality = QUALITY_STEPS[QUALITY_STEPS.length - 1];
+    var dataUrls = null;
+    var totalBytes = 0;
+
+    for (var qi = 0; qi < QUALITY_STEPS.length; qi++){
+      var q = QUALITY_STEPS[qi];
+      var urls = state.photos.map(function(p){ return p.finalCanvas.toDataURL('image/jpeg', q); });
+      var bytes = urls.reduce(function(sum, u){ return sum + dataUrlBytes(u); }, 0);
+      if (bytes <= TOTAL_SIZE_TARGET || qi === QUALITY_STEPS.length - 1){
+        chosenQuality = q;
+        dataUrls = urls;
+        totalBytes = bytes;
+        break;
+      }
+    }
+
+    state.reviewDataUrls = dataUrls;
+    state.reviewQuality = chosenQuality;
+    state.reviewTotalBytes = totalBytes;
+
+    renderReviewGrid();
+    renderCapacityBox();
+    updateSubmitAvailability();
+  }
+
+  function renderReviewGrid(){
+    var grid = $('#reviewGrid');
+    grid.innerHTML = '';
+    state.photos.forEach(function(p, idx){
+      var tile = document.createElement('div');
+      tile.className = 'review-tile';
+      var img = document.createElement('img');
+      img.src = state.reviewDataUrls[idx];
+      img.style.filter = filterCssFor(p);  // 필터 적용 (모바일 호환)
+      var rm = document.createElement('button');
+      rm.type = 'button';
+      rm.className = 'rm';
+      rm.textContent = '✕';
+      rm.addEventListener('click', function(){
+        state.photos.splice(idx, 1);
+        if (state.photos.length === 0){
+          alert('사진이 모두 제거되었어요. 처음부터 다시 업로드해주세요.');
+          goToStep(0);
+          renderTray();
+          updateStep0NextBtn();
+          return;
+        }
+        computeAndRenderReview();
+      });
+      var idxLabel = document.createElement('div');
+      idxLabel.className = 'idx';
+      idxLabel.textContent = (idx+1) + '/' + state.photos.length;
+      var sizeTag = document.createElement('div');
+      sizeTag.className = 'size-tag';
+      sizeTag.textContent = (p.sizePreset || SIZE_PRESETS[0]).shortLabel;
+      tile.appendChild(img);
+      tile.appendChild(idxLabel);
+      tile.appendChild(sizeTag);
+      tile.appendChild(rm);
+      grid.appendChild(tile);
+    });
+  }
+
+  function renderCapacityBox(){
+    var box = $('#capacityBox');
+    var pct = clamp((state.reviewTotalBytes / TOTAL_SIZE_HARD_CAP) * 100, 0, 999);
+    var overCap = state.reviewTotalBytes > TOTAL_SIZE_HARD_CAP;
+    var nearCap = !overCap && pct >= 85;
+
+    var cls = overCap ? 'error' : (nearCap ? 'warn' : '');
+    box.className = 'capacity-box' + (cls ? ' ' + cls : '');
+
+    var qualityNote = '';
+    if (state.reviewQuality < QUALITY_STEPS[0]){
+      qualityNote = ' (용량에 맞추려고 화질을 자동으로 ' + Math.round(state.reviewQuality*100) + '%로 낮췄어요)';
+    }
+
+    // 사이즈별 수량 요약 (예: 정사각형 6 x 6cm 5장 · 직사각형 8.4 x 5.3cm 3장)
+    var countsByLabel = {};
+    var labelOrder = [];
+    state.photos.forEach(function(p){
+      var label = (p.sizePreset || SIZE_PRESETS[0]).label;
+      if (!countsByLabel[label]){ countsByLabel[label] = 0; labelOrder.push(label); }
+      countsByLabel[label]++;
+    });
+    var sizeSummary = labelOrder.map(function(label){ return label + ' ' + countsByLabel[label] + '장'; }).join(' · ');
+
+    var html = '<div class="cap-title">총 ' + state.photos.length + '장 · 예상 전송 용량 ' +
+      formatMB(state.reviewTotalBytes) + 'MB / 25MB</div>' +
+      '<div class="cap-sizes">' + escapeHtml(sizeSummary) + '</div>' +
+      '<div>' + (overCap
+        ? '용량이 너무 커요. 사진을 몇 장 빼주세요.'
+        : ('이대로 한 통의 이메일로 전송돼요.' + qualityNote)) + '</div>' +
+      '<div class="capacity-bar"><div class="capacity-bar-fill' + (cls ? ' ' + cls : '') +
+      '" style="width:' + Math.min(100, pct) + '%;"></div></div>';
+    box.innerHTML = html;
+  }
+
+  function updateSubmitAvailability(){
+    $('#submitBtn').disabled = state.reviewTotalBytes > TOTAL_SIZE_HARD_CAP;
+  }
+
+  function enterReviewStep(){
+    goToStep(2);
+    computeAndRenderReview();
+  }
+
+  /* ---------- 주문자 정보(성함/주문번호) 필수 입력 검증 ---------- */
+  function setOrderNoteError(hasError){
+    $('#orderNoteField').classList.toggle('field-error', !!hasError);
+  }
+
+  function validateOrderNote(){
+    var val = $('#orderNote').value.trim();
+    var ok = val.length > 0;
+    setOrderNoteError(!ok);
+    return ok;
+  }
+
+  /* ---------- 서버 전송 ---------- */
+  function submitOrder(){
+    var statusBox = $('#statusBox');
+    var submitBtn = $('#submitBtn');
+
+    if (!validateOrderNote()){
+      statusBox.className = 'status-box show error';
+      statusBox.textContent = '⚠ 주문자 성함 또는 주문번호를 입력해주세요. (필수 항목이에요)';
+      $('#orderNote').focus();
+      return;
+    }
+
+    if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.indexOf('PASTE_YOUR') === 0){
+      statusBox.className = 'status-box show error';
+      statusBox.textContent = '⚠ 아직 전송 주소(GAS_WEB_APP_URL)가 설정되지 않았어요. README를 참고해 설정을 완료해주세요.';
+      return;
+    }
+    if (state.reviewTotalBytes > TOTAL_SIZE_HARD_CAP) return;
+
+    submitBtn.disabled = true;
+    statusBox.className = 'status-box show loading';
+    statusBox.textContent = '전송 중입니다... 사진이 많으면 시간이 조금 걸릴 수 있어요.';
+
+    var images = state.reviewDataUrls.map(function(u){ return u.split(',')[1]; });
+    var sizes = state.photos.map(function(p){
+      var preset = p.sizePreset || SIZE_PRESETS[0];
+      return { id: preset.id, label: preset.label };
+    });
+    var payload = {
+      images: images,
+      count: images.length,
+      sizes: sizes,
+      sellerId: sellerId || '(미지정)',
+      orderNote: $('#orderNote').value.trim(),
+      qualityUsed: state.reviewQuality
+    };
+
+    fetch(GAS_WEB_APP_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    })
+    .then(function(res){ return res.json(); })
+    .then(function(json){
+      if (json && json.ok){
+        goToStep(3);
+      } else {
+        throw new Error((json && json.error) || '알 수 없는 오류');
+      }
+    })
+    .catch(function(err){
+      statusBox.className = 'status-box show error';
+      statusBox.textContent = '전송에 실패했어요 (' + err.message + '). 인터넷 연결을 확인하고 다시 시도해주세요.';
+      submitBtn.disabled = false;
+    });
+  }
+
+  function downloadAllImages(){
+    if (!state.reviewDataUrls) return;
+    state.reviewDataUrls.forEach(function(url, idx){
+      setTimeout(function(){
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'photo_' + String(idx+1).padStart(2,'0') + '_' + Date.now() + '.jpg';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }, idx * 250);
+    });
+  }
+
+  /* ---------- 초기화 & 네비게이션 ---------- */
+  function resetAll(){
+    state.photos = [];
+    state.currentPhotoIndex = 0;
+    state.reviewDataUrls = null;
+    state.reviewQuality = null;
+    state.reviewTotalBytes = 0;
+
+    $('#orderNote').value = '';
+    setOrderNoteError(false);
+    $('#statusBox').className = 'status-box';
+    $('#submitBtn').disabled = false;
+    setDropzoneText(defaultDropzoneText());
+    $('#photoImg').src = '';
+    renderFilterGrid();
+    renderTray();
+    updateStep0NextBtn();
+    goToStep(0);
+  }
+
+  function init(){
+    renderFilterGrid();
+    setupUploadStep();
+    setupCropBoxDrag();
+    setupFilterSliders();
+    renderTray();
+
+    $('#toEditStep').addEventListener('click', function(){
+      goToStep(1);
+      enterEditorForPhoto(0);
+    });
+    $('#backToUpload').addEventListener('click', function(){
+      goToStep(0);
+      renderTray();
+      updateStep0NextBtn();
+    });
+
+    $('#rotateBtn').addEventListener('click', rotateCurrentPhoto);
+    $('#removeCurrentPhoto').addEventListener('click', removeCurrentPhoto);
+
+    $('#prevPhoto').addEventListener('click', function(){
+      enterEditorForPhoto(state.currentPhotoIndex - 1);
+    });
+    $('#nextPhoto').addEventListener('click', function(){
+      if (state.currentPhotoIndex < state.photos.length - 1){
+        enterEditorForPhoto(state.currentPhotoIndex + 1);
+      } else {
+        enterReviewStep();
+      }
+    });
+
+    $('#backToEdit').addEventListener('click', function(){
+      goToStep(1);
+      enterEditorForPhoto(state.currentPhotoIndex);
+    });
+
+    $('#orderNote').addEventListener('input', function(){
+      if ($('#orderNote').value.trim().length > 0) setOrderNoteError(false);
+    });
+
+    $('#submitBtn').addEventListener('click', submitOrder);
+    $('#downloadBtn').addEventListener('click', downloadAllImages);
+    $('#restartBtn').addEventListener('click', resetAll);
+
+    window.addEventListener('resize', function(){
+      if (currentStep === 1 && currentPhoto() && currentPhoto().cropBox){
+        var p = currentPhoto();
+        var t = p.cropBox.w / p.maxBox.w;
+        computeDisplaySizeForPhoto(p);
+        var cx = p.cropBox.x + p.cropBox.w/2;
+        var cy = p.cropBox.y + p.cropBox.h/2;
+        setCropBoxSizeNatural(p, p.maxBox.w * t, p.maxBox.h * t, cx, cy);
+        redrawEditorFilterPreview();
+      }
+    });
+
+    goToStep(0);
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+</body>
+</html>
